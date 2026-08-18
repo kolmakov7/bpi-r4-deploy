@@ -1,15 +1,19 @@
 #!/bin/bash
 set -euo pipefail
 
+# BUMP 2026-07-06 (main migration; predchozi git01 base: 13f39a74):
+#   OpenWrt:  4d0fec5a4845ba166203a782d08217b3f1cf2af9  (openwrt-25.12; lab sync 2026-08-06)
+#   MTK SDK:  3a4e2a2511af93cea1ca43205a02362423882b7c  (main; lab sync 2026-08-06)
+
 rm -rf openwrt
 rm -rf mtk-openwrt-feeds
 
 git clone --branch openwrt-25.12 https://git.openwrt.org/openwrt/openwrt.git openwrt
-cd openwrt; git checkout ${OPENWRT_COMMIT}; cd -;
+cd openwrt; git checkout ${OPENWRT_COMMIT:-4d0fec5a4845ba166203a782d08217b3f1cf2af9}; cd -;
 
-# BUMP 2026-06-24: tarball replaced by fresh clone from MTK GitHub (branch git01 = our line)
-git clone --branch git01 https://github.com/mediatek/mtk-openwrt-feeds mtk-openwrt-feeds
-( cd mtk-openwrt-feeds && git checkout 42c9ff6569658fd5a71944e25f5fe7b4b4e21437 )
+# 2026-07-06: migrated git01 -> main (git01 frozen; MTK recommends main). Single source of truth.
+git clone --branch main https://github.com/mediatek/mtk-openwrt-feeds mtk-openwrt-feeds
+( cd mtk-openwrt-feeds && git checkout 3a4e2a2511af93cea1ca43205a02362423882b7c )
 
 #\cp -r my_files/feed_revision mtk-openwrt-feeds/autobuild/unified/
 
@@ -17,6 +21,7 @@ git clone --branch git01 https://github.com/mediatek/mtk-openwrt-feeds mtk-openw
 \cp -r my_files/999-sfp-11-rtl8261be-mdio-none.patch mtk-openwrt-feeds/25.12/files/target/linux/mediatek/patches-6.12
 \cp -r my_files/999-sfp-22-rtl8261be-boot-1g-reprobe.patch mtk-openwrt-feeds/25.12/files/target/linux/mediatek/patches-6.12
 \cp -r my_files/999-eth-21-mtk-gdm-rx-fsm-reset.patch mtk-openwrt-feeds/25.12/files/target/linux/mediatek/patches-6.12
+\cp -r my_files/999-pcs-10-lynxi-hold-link-down-on-invalid-speed.patch mtk-openwrt-feeds/25.12/files/target/linux/mediatek/patches-6.12
 \cp -r my_files/999-fix-00-xfrm-propagate-einprogress.patch mtk-openwrt-feeds/25.12/files/target/linux/mediatek/patches-6.12
 
 cd openwrt
@@ -29,6 +34,13 @@ bash ../mtk-openwrt-feeds/autobuild/unified/autobuild.sh filogic prepare
 \cp ../my_files/452-w-add-bpi-r4-nvme-rfb.patch package/boot/uboot-mediatek/patches/452-add-bpi-r4-nvme-rfb.patch
 \cp ../my_files/454-w-add-bpi-r4-nvme-env.patch package/boot/uboot-mediatek/patches/454-add-bpi-r4-nvme-env.patch
 \cp -r ../my_files/w-filogic-bpi-r4-universal.mk target/linux/mediatek/image/filogic.mk
+
+### ethernet/board LED (BPI-R4 standard) - leds overlay + uboot LED + filogic device + PHY trigger
+\cp -r ../my_files/470-w-add-bpi-r4-leds-overlay.patch target/linux/mediatek/patches-6.12/
+\cp ../my_files/471-w-bpi-r4-led-uboot.patch package/boot/uboot-mediatek/patches/471-bpi-r4-led-uboot.patch
+sed -i 's/mt7988a-bananapi-bpi-r4-nvme$/mt7988a-bananapi-bpi-r4-nvme mt7988a-bananapi-bpi-r4-leds/' target/linux/mediatek/image/filogic.mk
+echo "CONFIG_LED_TRIGGER_PHY=y" >> target/linux/mediatek/filogic/config-6.12
+
 \cp ../my_files/arm-trusted-firmware-mediatek-Makefile package/boot/arm-trusted-firmware-mediatek/Makefile
 
 echo "CONFIG_BLK_DEV_NVME=y" >> target/linux/mediatek/filogic/config-6.12
@@ -46,6 +58,32 @@ echo "CONFIG_TASK_IO_ACCOUNTING=y" >> target/linux/mediatek/filogic/config-6.12
 mkdir -p files/etc/uci-defaults
 \cp -r ../my_files/99-set-hostname files/etc/uci-defaults/
 chmod +x files/etc/uci-defaults/99-set-hostname
+
+# LAN LED: mtk-led-fix programs mt7530 gphy port-LED registers at boot (link + tx/rx activity)
+mkdir -p files/etc/init.d
+\cp ../my_files/etc-files/init.d/mtk-led-fix files/etc/init.d/
+chmod +x files/etc/init.d/mtk-led-fix
+\cp ../my_files/etc-files/uci-defaults/95-mtk-led-fix-enable files/etc/uci-defaults/
+chmod +x files/etc/uci-defaults/95-mtk-led-fix-enable
+
+# SD auto-expand: grow production + fitrw f2fs to fill the SD card on first boot (SD-only, guarded)
+mkdir -p files/lib/preinit
+\cp ../my_files/etc-files/lib/preinit/19-expand-fit-rootfs files/lib/preinit/
+chmod +x files/lib/preinit/19-expand-fit-rootfs
+
+# NVMe /data: mount the LABEL=data partition (NVMe installs only) at /data on first boot
+\cp ../my_files/etc-files/uci-defaults/96-data-mount files/etc/uci-defaults/
+chmod +x files/etc/uci-defaults/96-data-mount
+
+mkdir -p files/root/install-dir
+\cp ../my_files/bpi-r4-install/install-nand.sh files/root/install-dir/install-nand.sh
+chmod +x files/root/install-dir/install-nand.sh
+\cp ../my_files/bpi-r4-install/install-nvme.sh files/root/install-dir/install-nvme.sh
+chmod +x files/root/install-dir/install-nvme.sh
+\cp ../my_files/bpi-r4-install/install-emmc.sh files/root/install-dir/install-emmc.sh
+chmod +x files/root/install-dir/install-emmc.sh
+\cp ../my_files/bpi-r4-install/install-nvme-unifi.sh files/root/install-dir/install-nvme-unifi.sh
+chmod +x files/root/install-dir/install-nvme-unifi.sh
 
 ./scripts/feeds update -a
 ./scripts/feeds install -a
