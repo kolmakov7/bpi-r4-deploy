@@ -5,6 +5,8 @@
 *~
 *.swp
 
+/sources
+
 # wifimgr session/planning docs — not needed for builds
 my_files/luci-app-wifimgr/CLAUDE.md
 my_files/luci-app-wifimgr/CONTEXT.md

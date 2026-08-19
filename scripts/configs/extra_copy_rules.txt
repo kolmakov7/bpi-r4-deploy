@@ -3,6 +3,8 @@ zapret-openwrt/luci-app-zapret luci-app-zapret/
 zapret-openwrt/zapret zapret/
 luci-app-fancontrol/luci-app-fancontrol luci-app-fancontrol/
 luci-app-fancontrol/fancontrol fancontrol/
+openwrt-sub-converter/luci-app-sub-converter luci-app-sub-converter/
+openwrt-sub-converter/sub-converter sub-converter/
 awg-openwrt/amneziawg-tools amneziawg-tools/
 awg-openwrt/kmod-amneziawg kmod-amneziawg/
 awg-openwrt/luci-proto-amneziawg luci-proto-amneziawg/

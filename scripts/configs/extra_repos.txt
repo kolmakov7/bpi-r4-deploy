@@ -7,3 +7,4 @@ https://github.com/eamonxg/luci-theme-aurora luci-theme-aurora
 https://github.com/jerrykuku/luci-theme-argon luci-theme-argon
 https://github.com/timsaya/luci-app-bandix.git luci-app-bandix
 https://github.com/timsaya/openwrt-bandix.git openwrt-bandix
+https://github.com/kolmakov7/openwrt-sub-converter openwrt-sub-converter
